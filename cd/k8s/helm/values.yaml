@@ -1,0 +1,17 @@
+global:
+  domain: argocd-192.168.0.100.nip.io
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+
+server:
+  extensions:
+    enabled: true
+    extensionList:
+      - name: rollout-extension
+        env:
+          # https://github.com/argoproj-labs/rollout-extension
+          - name: EXTENSION_URL
+            value: https://github.com/argoproj-labs/rollout-extension/releases/download/v0.3.4/extension.tar

@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-fitness-analyse
+spec:
+  metrics:
+  - name: canary-fitness-analyse
+    interval: 10s
+    count: 3
+    successCondition: result == "true"
+    failureLimit: 1
+    provider:
+      job:
+        spec:
+          ttlSecondsAfterFinished: 240  # must be > experiment duration
+          backoffLimit: 1
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: canary-fitness-analyse
+                image: curlimages/curl
+                command: ["/bin/sh", "-c"]
+                args:
+                - |
+                  FITNESS_RESULT="false"
+                  CANARY_SERVICE_URL="http://demo-app-preview:3000"
+
+                  # Perform the fitness test
+                  RESPONSE=$(curl -s $CANARY_SERVICE_URL)
+
+                  # Check if the response contains the expected string
+                  if [[ "$RESPONSE" == *"Pod Info App"* ]]; then
+                    FITNESS_RESULT="true"
+                  fi
+
+                  # Return the fitness test result
+                  echo $FITNESS_RESULT

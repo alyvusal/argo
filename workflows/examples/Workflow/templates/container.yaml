@@ -1,0 +1,31 @@
+# Container
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  # generateName: container-template-
+  name: container-template-args
+  namespace: argo
+spec:
+  entrypoint: main
+  templates:
+  - name: main
+    container:
+      image: docker/whalesay
+      command: [cowsay]
+      args: ["hello {{workflow.name}}"]
+      # {{workflow.name}} is a variable, which is replaced by the workflow's name
+      # https://argo-workflows.readthedocs.io/en/latest/variables/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  # generateName: container-template-
+  name: container-template-command
+  namespace: argo
+spec:
+  entrypoint: container-template
+  templates:
+  - name: container-template
+    container:
+      image: python:3.8-slim
+      command: [echo, "The container template was executed successfully."]

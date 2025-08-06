@@ -1,0 +1,87 @@
+# https://argo-workflows.readthedocs.io/en/latest/enhanced-depends-logic/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: wf-depends
+spec:
+  entrypoint: dag-template
+  arguments:
+    parameters:
+    - name: messageA
+      value: A
+    - name: messageB
+      value: B
+
+  templates:
+  - name: dag-template
+    inputs:
+      parameters:
+      - name: messageA
+      - name: messageB
+    dag:
+      tasks:
+      - name: task1
+        arguments:
+          parameters: [{name: text, value: "{{inputs.parameters.messageA}}" }]
+        template: task-decision
+      - name: taska
+        template: task-a
+        depends: task1.Succeeded
+        when: "{{tasks.task1.outputs.result}} == A"
+      - name: taskb
+        template: task-b
+        depends: task1.Succeeded
+        when: "{{tasks.task1.outputs.result}} == B" # 'A == B', false, will not run
+      - name: taskc
+        template: task-c
+        depends: taska.Succeeded
+      - name: taskd
+        template: task-d
+        depends: taska.Skipped  # taskA not skipped, will not run this also
+      - name: taskd2
+        template: task-d
+        depends: taskb.Succeeded # taskB not Succeeded
+      - name: taskc2
+        template: task-c
+        depends: taskb.Skipped
+
+
+  - name: task-decision
+    inputs:
+      parameters:
+      - name: text
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        p = "{{inputs.parameters.text}}"
+        print(p)
+
+  - name: task-a
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task A was executed.")
+
+  - name: task-b
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task B was executed.")
+
+  - name: task-c
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task C was executed.")
+
+  - name: task-d
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task D was executed.")

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app-image-updater
+  labels:
+    app: demo-app-image-updater
+    tier: front
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: demo-app-image-updater
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  template:
+    metadata:
+      labels:
+        app: demo-app-image-updater
+        tier: front
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-creds
+      containers:
+      - image: alyvusal/demo-app:v1
+        name: demo-app-image-updater
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "128Mi"
+

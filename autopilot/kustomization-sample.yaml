@@ -1,0 +1,97 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+configMapGenerator:
+- name: argocd-cm
+  behavior: merge
+  literals:
+  - |
+    repository.credentials=- passwordSecret:
+        key: git_token
+        name: autopilot-secret
+      url: https://github.com/
+      usernameSecret:
+        key: git_username
+        name: autopilot-secret
+  # add an additional local user with apiKey and login capabilities
+  #   apiKey - allows generating API keys
+  #   login - allows to login using UI
+  - accounts.vusal=apiKey,login
+  # disables user. User is enabled by default
+  - accounts.alice=apiKey, login
+  # disables user. User is enabled by default
+  - accounts.alice.enabled="false"
+  # - accounts.image-updater=apiKey
+# - name: argocd-notifications-cm
+#   behavior: merge
+#   literals:
+#   - |
+#     service.slack=token: $slack-token
+- name: argocd-notifications-cm
+  behavior: merge
+  literals:
+  - |
+    service.webhook.slack_webhook=url: https://hooks.slack.com/services/xxxx/yyyy/zzzz
+    headers:
+    - name: Content-Type
+      value: application/json
+  - |
+    template.send-slack=webhook:
+      slack_webhook:
+        method: POST
+        body: |
+          {
+            "attachments": [{
+              "title": "{{.app.metadata.name}}",
+              "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+              "color": "#18be52",
+              "fields": [{
+                "title": "Sync Status",
+                "value": "{{.app.status.sync.status}}",
+                "short": true
+              }, {
+                "title": "Repository",
+                "value": "{{.app.spec.source.repoURL}}",
+                "short": true
+              }]
+            }]
+          }
+# image updater
+# method 2: https://argocd-image-updater.readthedocs.io/en/stable/install/installation/#method-2-connect-using-argo-cd-api-server
+- name: argocd-rbac-cm
+  behavior: merge
+  literals:
+  - policy.default=role:readonly
+  - |
+    policy.csv=p, role:operator, applications, get, */*, allow
+    p, role:operator, applications, sync, */*, allow
+    p, role:operator, gpgkeys, get, *, allow
+    g, vusal, role:operator
+#   - |
+#     policy.csv=p, role:image-updater, applications, get, */*, allow
+#     p, role:image-updater, applications, update, */*, allow
+#     g, image-updater, role:image-updater
+# - name: argocd-image-updater-config
+#   behavior: merge
+#   literals:
+#   - applications_api=argocd
+#   - argocd.server_addr=argocd-192.168.0.100.nip.io
+#   - argocd.grpc_web="true"
+#   - argocd.insecure="true"
+#   - argocd.plaintext="false"
+resources:
+- github.com/argoproj-labs/argocd-autopilot/manifests/base?ref=v0.4.17
+- https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+- ./ingress.yaml
+# # image updater
+# method 1: https://argocd-image-updater.readthedocs.io/en/stable/install/installation/#method-1-installing-as-kubernetes-workload-in-argo-cd-namespace
+- https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+# method 2: https://argocd-image-updater.readthedocs.io/en/stable/install/installation/#method-2-connect-using-argo-cd-api-server
+# - https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+patchesStrategicMerge:  # disable ingress-nginx ns, it conflict with autopilot annotations
+- |-
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: ingress-nginx
+  $patch: delete

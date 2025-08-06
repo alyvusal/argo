@@ -1,0 +1,61 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: demo-app
+spec:
+  replicas: 5
+  strategy:
+    blueGreen: null
+    # https://argo-rollouts.readthedocs.io/en/stable/features/canary/
+    canary:
+      # Reference to a Service which the controller will update to point to the canary ReplicaSet
+      canaryService: demo-app-preview
+      # Reference to a Service which the controller will update to point to the stable ReplicaSet
+      stableService: demo-app
+      # dynamically scale the stable ReplicaSet, scale down old version as canary weight increases
+      dynamicStableScale: true
+      # https://argo-rollouts.readthedocs.io/en/stable/features/canary/#dynamic-canary-scale-with-traffic-routing
+      trafficRouting:
+        nginx:
+          # Reference to an Ingress which has a rule pointing to the stable service
+          # This ingress will be cloned with a new name (<ROLLOUT-NAME>-<INGRESS-NAME>-canary), in order to achieve NGINX traffic splitting.
+          stableIngress: demo-app
+          # adds header to ingress of canary pods (ingress will be created: demo-app-demo-app-canary)
+          additionalIngressAnnotations:
+            canary-by-header: X-Canary
+            canary-by-header-value: siege
+      steps:
+      # explicit replica count without changing traffic weight
+      # - setCanaryScale:
+      #     replicas: 2  # be careful if when setWeight will send traffic to this replicas, need enough pods
+      # explicit weight percentage of total spec.replicas without changing traffic weight
+      # - setCanaryScale:
+      #     weight: 20
+      # to or not to match current canary's setWeight step
+      - setCanaryScale:  # works with dynamicStableScale: true
+          matchTrafficWeight: true
+      - experiment:
+          duration: 1m
+          templates:
+          - name: canary
+            specRef: canary
+            service:
+              name: experiment
+          analyses:
+            - name: canary-fitness-analyse
+              templateName: canary-fitness-analyse
+      - setWeight: 20  # send 20% traffic to canary pods
+      - pause:
+          duration: 10s
+      - setWeight: 40
+      - pause:
+          duration: 10s
+      - setWeight: 60
+      - analysis:
+          templates:
+          - templateName: canary-load-analyse
+          - templateName: canary-latency-analyse
+      - setWeight: 80
+      - pause:
+          duration: 10s
+      - setWeight: 100

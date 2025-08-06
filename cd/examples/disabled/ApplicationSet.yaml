@@ -1,0 +1,41 @@
+# https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/applicationset-specification/
+# https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: guestbook
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+  - list:
+      elements:  # below ones is just variable we create to use later
+      - cluster: prod
+        url: https://kubernetes.default.svc
+        revision: HEAD
+      # - cluster: dev
+      #   url: https://192.168.0.100:6444
+      #   revision: HEAD
+  template:
+    metadata:
+      name: 'appset-guestbook-{{.cluster}}'
+    spec:
+      project: default
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+        automated:
+          prune: true
+          selfHeal: true
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps.git
+        targetRevision: '{{.revision}}'
+        path: guestbook
+      destination:
+        server: '{{.url}}'
+        namespace: guestbook
+  # This sync policy pertains to the ApplicationSet, not to the Applications it creates.

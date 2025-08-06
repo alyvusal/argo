@@ -1,0 +1,35 @@
+# A suspend template allows you to automatically suspend a workflow, e.g.
+# while waiting on manual approval, or while an external system does some work.
+# https://argo-workflows.readthedocs.io/en/latest/walk-through/suspending/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: suspend-steps-template
+  namespace: argo
+spec:
+  entrypoint: steps-template
+  templates:
+  - name: steps-template
+    steps:
+    - - name: step1
+        template: task-template
+    - - name: step2
+        template: task-template
+      - name: step3
+        template: task-template
+    - - name: suspend
+        template: suspend-template # suspend used here
+    - - name: step4
+        template: task-template
+
+  - name: task-template
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task executed.")
+
+  - name: suspend-template
+    suspend:
+      duration: "10s"

@@ -1,0 +1,72 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+configMapGenerator:
+- name: argocd-cm
+  behavior: merge
+  literals:
+  - |
+    repository.credentials=- passwordSecret:
+        key: git_token
+        name: autopilot-secret
+      url: https://github.com/
+      usernameSecret:
+        key: git_username
+        name: autopilot-secret
+  - accounts.vusal=apiKey,login
+  - accounts.alice=apiKey, login
+  - accounts.alice.enabled="false"
+- name: argocd-rbac-cm
+  behavior: merge
+  literals:
+  - policy.default=role:readonly
+  - |
+    policy.csv=p, role:operator, applications, get, */*, allow
+    p, role:operator, applications, sync, */*, allow
+    p, role:operator, gpgkeys, get, *, allow
+    g, vusal, role:operator
+- name: argocd-notifications-cm
+  behavior: merge
+  literals:
+  - |
+    service.webhook.slack_webhook=url: https://hooks.slack.com/services/xxxx/yyyyy/zzzzz
+    headers:
+    - name: Content-Type
+      value: application/json
+  - |
+    template.send-slack=webhook:
+      slack_webhook:
+        method: POST
+        body: |
+          {
+            "attachments": [{
+              "title": "{{.app.metadata.name}}",
+              "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+              "color": "#18be52",
+              "fields": [{
+                "title": "Sync Status",
+                "value": "{{.app.status.sync.status}}",
+                "short": true
+              }, {
+                "title": "Repository",
+                "value": "{{.app.spec.source.repoURL}}",
+                "short": true
+              }]
+            }]
+          }
+- name: argocd-gpg-keys-cm
+  behavior: merge
+  files:
+  - 896EE3F6617BEB03=pgp-public-key.txt
+resources:
+- github.com/argoproj-labs/argocd-autopilot/manifests/base?ref=v0.4.17
+- https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+- ./ingress.yaml
+- https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+patchesStrategicMerge:
+- |-
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: ingress-nginx
+  $patch: delete

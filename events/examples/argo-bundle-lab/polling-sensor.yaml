@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: polling-sensor
+  namespace: argo-events
+spec:
+  template:
+    serviceAccountName: operate-workflow-sa
+  dependencies:
+    - name: poll-github
+      eventSourceName: webhook
+      eventName: github  # EventSource > spec.webhook.github
+  triggers:
+    - template:
+        name: launch-demo-app-template
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: demo-app-events-
+              spec:
+                workflowTemplateRef:
+                  name: demo-app-template
+                arguments:
+                  parameters:
+                  - name: repo-url
+                    value: "https://github.com/alyvusal/demo-app.git"
+                  - name: branch
+                    value: "main"
+                  - name: image
+                    value: "alyvusal/demo-app"
+                  - name: dockerfile
+                    value: "Dockerfile"

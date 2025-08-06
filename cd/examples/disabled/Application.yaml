@@ -1,0 +1,81 @@
+# https://argo-cd.readthedocs.io/en/stable/user-guide/application-specification/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-prod
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: docker.io/bitnami/nginx
+    argocd-image-updater.argoproj.io/nginx.update-strategy: latest
+    argocd-image-updater.argoproj.io/nginx.ignore-tags: latest, master
+    # write-back-methods
+    # https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/
+    # 1. argocd method (updates app manifest in k8s live)
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+    # 2. git method (necessary for app-of-apps pattern)
+    # argocd-image-updater.argoproj.io/write-back-method: git
+    # argocd-image-updater.argoproj.io/git-branch: main
+    # argocd-image-updater.argoproj.io/write-back-target: kustomization
+    # notifications.argoproj.io/subscribe.on-deployed.webhook: "monitoring"
+    # notifications.argoproj.io/subscribe.on-sync-succeeded.webhook: "monitoring"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    chart: nginx
+    repoURL: https://charts.bitnami.com/bitnami
+    targetRevision: 13.2.10
+    helm:
+      parameters:
+        - name: service.type
+          value: ClusterIP
+  destination:
+    namespace: nginx
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    syncOptions:  # https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/
+      - CreateNamespace=true
+      - Validate=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    automated:
+      prune: true
+      selfHeal: true
+    # retry:
+    #   limit: 5 # Maximum number of retries
+    #   backoff:
+    #     duration: 5s # Initial retry interval
+    #     factor: 2 # Multiplication factor for the backoff
+    #     maxDuration: 1m # Maximum retry interval
+---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: nginx-dev
+#   namespace: argocd
+#   finalizers:
+#     - resources-finalizer.argocd.argoproj.io
+# spec:
+#   project: default
+#   source:
+#     chart: nginx
+#     repoURL: https://charts.bitnami.com/bitnami
+#     targetRevision: 13.2.10
+#     helm:
+#       parameters:
+#         - name: service.type
+#           value: ClusterIP
+#   destination:
+#     namespace: nginx
+#     server: https://192.168.0.100:6444
+#   syncPolicy:
+#     syncOptions:
+#       - CreateNamespace=true
+#       - Validate=true
+#       - PrunePropagationPolicy=foreground
+#       - PruneLast=true
+#     automated:
+#       prune: true
+#       selfHeal: true

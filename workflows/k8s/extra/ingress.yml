@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argo-server
+  namespace: argo
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    #nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod-cf-dns"
+spec:
+  tls:
+  - hosts:
+    - argowf.infrakubecls01.k8s.cloudlinux.com
+    secretName: argowf.tls-key
+  rules:
+    - host: argowf.infrakubecls01.k8s.cloudlinux.com
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific # Prefix
+            backend:
+              service:
+                name: argo-server
+                port:
+                  number: 2746

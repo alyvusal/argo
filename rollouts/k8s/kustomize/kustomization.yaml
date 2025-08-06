@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ./base/namespace.yaml
+  - ./base/ingress-kind.yaml
+  - https://github.com/argoproj/argo-rollouts/releases/download/v1.7.2/install.yaml
+  - https://github.com/argoproj/argo-rollouts/releases/download/v1.7.2/dashboard-install.yaml
+
+namespace: argo-rollouts

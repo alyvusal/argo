@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Argo CD's externally facing base URL (optional). Required when configuring SSO
+  url: https://argocd-192.168.0.100.nip.io/
+
+  # disable admin user. Admin is enabled by default
+  admin.enabled: "true"
+  users.anonymous.enabled: "false"
+  # add an additional local user with apiKey and login capabilities
+  #   apiKey - allows generating API keysif
+  #   login - allows to login using UI
+
+  # if argocd-image-updater applications_api is argocd, then enable below lines
+  # accounts.image-updater: apiKey
+
+  # accounts.vusal: apiKey, login
+  # disables user. User is enabled by default
+  # accounts.vusal.enabled: "false"
+
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  exec.enabled: "true"
+  # the URL for getting chat help, this will typically be your Slack channel for support
+  help.chatUrl: "https://mycorp.slack.com/argo-cd"
+  # the text for getting chat help, defaults to "Chat now!"
+  help.chatText: "Chat now!"
+  # Enables application status badge feature
+  statusbadge.enabled: "true"
+  # https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/upgrading/2.3-2.4.md#enable-logs-rbac-enforcement
+  server.rbac.log.enforce.enable: "true"
+
+  # Enables anonymous user access. The anonymous users get default role permissions specified argocd-rbac-cm.yaml.
+    # The location of optional user-defined CSS that is loaded at runtime.
+  # Local CSS Files:
+  # - If the supplied path is to a file mounted on the argocd-server container, that file should be mounted
+  #   within a subdirectory of the existing "/shared/app" directory (e.g. "/shared/app/custom").  Otherwise,
+  #   the file will likely fail to be imported by the browser with an "incorrect MIME type" error.
+  # - The path should be specified relative to the "/shared/app" directory; not as an absolute path.
+  # Remote CSS Files:
+  # - Files may also be loaded from remote locations via fully qualified URLs.
+  # ui.cssurl: "./custom/my-styles.css"
+
+  # An optional user-defined banner message that's displayed at the top of every UI page.
+  # Every time this is updated, it will clear a user's localStorage telling the UI to hide the banner forever.
+  # ui.bannercontent: "Hello there! Add global message here. After reading it it could be dismissed"
+  # Optional link for banner. If set, the entire banner text will become a link.
+  # You can have bannercontent without a bannerurl, but not the other way around.
+  # ui.bannerurl: "https://argoproj.github.io"
+
+  # Application reconciliation timeout is the max amount of time required to discover if a new manifests version got
+  # published to the repository. Reconciliation by timeout is disabled if timeout is set to 0. Three minutes by default.
+  # > Note: argocd-repo-server deployment must be manually restarted after changing the setting.
+  timeout.reconciliation: 180s
+  timeout.hard.reconciliation: 0s
+  # Specifies token expiration duration
+  users.session.duration: "24h"
+
+  # Enables google analytics tracking is specified
+  ga.trackingid: "UA-12345-1"
+  # Unless set to 'false' then user ids are hashed before sending to google analytics
+  ga.anonymizeusers: "false"
+  # https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/
+  # https://github.com/alexmt/argocd-flux
+  configManagementPlugins: |
+    - name: flux
+      generate:
+        command: [sh, -c]
+        args: ["argocd-flux-plugin . --path $GIT_PATH"]

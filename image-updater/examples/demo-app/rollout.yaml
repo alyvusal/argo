@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  labels:
+    app: demo-app-image-updater
+    tier: front
+  name: demo-app-image-updater
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-app-image-updater
+  strategy:
+    blueGreen: null
+    # https://argoproj.github.io/argo-rollouts/features/canary/
+    canary:
+      canaryService: demo-app-image-updater-preview
+      stableService: demo-app-image-updater
+      # https://argoproj.github.io/argo-rollouts/features/traffic-management/nginx/
+      # https://kubernetes.github.io/ingress-nginx/examples/canary/
+      trafficRouting:
+        nginx:
+          stableIngress: demo-app-image-updater
+      steps:
+      - setCanaryScale:
+          replicas: 3
+      - setWeight: 20
+      - pause:
+          duration: 10s
+      - setWeight: 40
+      - pause:
+          duration: 10s
+      - setWeight: 60
+      - pause:
+          duration: 10s
+      - setWeight: 80
+      - pause:
+          duration: 10s
+      - setWeight: 100
+  template:
+    metadata:
+      # Remove spec.template.metadata.name if present.
+      labels:
+        app: demo-app-image-updater
+        tier: front
+    spec:
+      containers:
+      - image: alyvusal/demo-app:v1
+        name: demo-app-image-updater
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "128Mi"
+

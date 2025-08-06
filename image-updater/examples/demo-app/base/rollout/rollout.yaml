@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  labels:
+    app: demo-app-image-updater
+    tier: front
+  name: demo-app-image-updater
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-app-image-updater
+  strategy:
+    # https://argoproj.github.io/argo-rollouts/features/bluegreen/
+    blueGreen:
+      autoPromotionEnabled: true
+      autoPromotionSeconds: 30
+      activeService: demo-app-image-updater
+      previewService: demo-app-image-updater-preview
+  template:
+    metadata:
+      # Remove spec.template.metadata.name if present.
+      labels:
+        app: demo-app-image-updater
+        tier: front
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-creds
+      containers:
+      - image: alyvusal/demo-app:v1
+        name: demo-app-image-updater
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "128Mi"
+

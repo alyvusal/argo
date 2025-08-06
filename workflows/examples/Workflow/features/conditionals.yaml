@@ -1,0 +1,73 @@
+# https://argo-workflows.readthedocs.io/en/latest/walk-through/conditionals/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: wf-condition
+spec:
+  entrypoint: dag-template
+  arguments:
+    parameters:
+    - name: messageA
+      value: A
+    - name: messageB
+      value: B
+
+  templates:
+  - name: dag-template
+    inputs:
+      parameters:
+      - name: messageA
+      - name: messageB
+
+    dag:
+      tasks:
+      - name: task1
+        arguments:
+          parameters: [{name: text, value: "{{inputs.parameters.messageA}}" }]
+        template: task-decision
+      - name: taska
+        template: task-a
+        dependencies: [task1]
+        when: "{{tasks.task1.outputs.result}} == A"  # condition
+      - name: taskb
+        template: task-b
+        dependencies: [task1]
+        when: "{{tasks.task1.outputs.result}} == b"  # condition A== b, false, will not run
+      - name: task2
+        arguments:
+          parameters: [{name: text, value: "{{inputs.parameters.messageB}}" }]
+        template: task-decision
+      - name: taska2
+        template: task-a
+        dependencies: [task2]
+        when: "{{tasks.task2.outputs.result}} == A"  # condition B == A, false, will not run
+      - name: taskb2
+        template: task-b
+        dependencies: [task2]
+        when: "{{tasks.task2.outputs.result}} == B"  # condition
+
+  - name: task-decision
+    inputs:
+      parameters:
+      - name: text
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        p = "{{inputs.parameters.text}}"
+        print(p)
+
+  - name: task-a
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task A was executed.")
+
+  - name: task-b
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task B was executed.")

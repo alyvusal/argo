@@ -1,0 +1,138 @@
+# # Don't one of rollout examples at a time
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: demo-app-native-deployment
+#   namespace: argocd
+#   finalizers:
+#     # The default behaviour is foreground cascading deletion
+#     - resources-finalizer.argocd.argoproj.io
+#     # Alternatively, you can use background cascading deletion
+#     # - resources-finalizer.argocd.argoproj.io/background
+# spec:
+#   destination:
+#     name: ''
+#     namespace: 'default'
+#     server: https://kubernetes.default.svc
+#   source:
+#     path: argo/rollouts/examples/native-deployment
+#     repoURL: https://github.com/alyvusal/sre.git
+#     targetRevision: HEAD
+#   sources: []
+#   project: default
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: demo-app-rollout-bluegreen
+#   namespace: argocd
+#   finalizers:
+#     # The default behaviour is foreground cascading deletion
+#     - resources-finalizer.argocd.argoproj.io
+#     # Alternatively, you can use background cascading deletion
+#     # - resources-finalizer.argocd.argoproj.io/background
+# spec:
+#   destination:
+#     name: ''
+#     namespace: 'default'
+#     server: https://kubernetes.default.svc
+#   source:
+#     path: argo/rollouts/examples/rollout-bluegreen/v3  # change from v1 ... v3 to test
+#     repoURL: https://github.com/alyvusal/sre.git
+#     targetRevision: HEAD
+#   sources: []
+#   project: default
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: demo-app-rollout-canary
+#   namespace: argocd
+#   finalizers:
+#     # The default behaviour is foreground cascading deletion
+#     - resources-finalizer.argocd.argoproj.io
+#     # Alternatively, you can use background cascading deletion
+#     # - resources-finalizer.argocd.argoproj.io/background
+# spec:
+#   destination:
+#     name: ''
+#     namespace: 'default'
+#     server: https://kubernetes.default.svc
+#   source:
+#     path: argo/rollouts/examples/rollout-canary/v1  # change from v1 ... v3 to test
+#     repoURL: https://github.com/alyvusal/sre.git
+#     targetRevision: HEAD
+#   sources: []
+#   project: default
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: demo-app-rollout-ingress-nginx-canary
+#   namespace: argocd
+#   finalizers:
+#     # The default behaviour is foreground cascading deletion
+#     - resources-finalizer.argocd.argoproj.io
+#     # Alternatively, you can use background cascading deletion
+#     # - resources-finalizer.argocd.argoproj.io/background
+# spec:
+#   destination:
+#     name: ''
+#     namespace: 'default'
+#     server: https://kubernetes.default.svc
+#   source:
+#     path: argo/rollouts/examples/rollout-ingress-nginx-canary/v3  # change from v1 ... v3 to test
+#     repoURL: https://github.com/alyvusal/sre.git
+#     targetRevision: HEAD
+#   sources: []
+#   project: default
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+# ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app-experiment-analysis
+  namespace: argocd
+  finalizers:
+    # The default behaviour is foreground cascading deletion
+    - resources-finalizer.argocd.argoproj.io
+    # Alternatively, you can use background cascading deletion
+    # - resources-finalizer.argocd.argoproj.io/background
+spec:
+  # see GitOps OutofSync Issue in https://medium.com/israeli-tech-radar/deployment-strategies-argo-rollouts-1980fc0685e6
+  ignoreDifferences:
+  - group: networking.istio.io
+    kind: VirtualService
+    jqPathExpressions:
+    - .spec.http[] | select(.name == "canary") | .route[0].weight
+    - .spec.http[] | select(.name == "canary") | .route[1].weight
+  destination:
+    name: ''
+    namespace: 'default'
+    server: https://kubernetes.default.svc
+  source:
+    path: argo/rollouts/examples/experiment-analysis/v1  # change from v1 ... v3 to test
+    repoURL: https://github.com/alyvusal/sre.git
+    targetRevision: HEAD
+  sources: []
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

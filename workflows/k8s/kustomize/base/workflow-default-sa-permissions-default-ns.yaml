@@ -1,0 +1,79 @@
+# give our webhook ap (as default:default) permissions to create workflows
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-invocation
+  namespace: default
+rules:
+- apiGroups:
+  - 'argoproj.io'
+  resources:
+  - workflows
+  - workfloweventbindings
+  - workflowtemplates
+  - clusterworkflowtemplates
+  - workflowtaskresults
+  - sensors
+  - cronworkflows
+  - workflowartifactgctasks
+  - workflowtasksets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: default-default-invocation
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-invocation
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+# give workflows (as argo:default) permissions to run things
+# see https://github.com/argoproj/argo/blob/master/docs/workflow-rbac.md
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-workflow
+  namespace: default
+rules:
+# pod get/watch is used to identify the container IDs of the current pod
+# pod patch is used to annotate the step's outputs back to controller (e.g. artifact location)
+# logs get/watch are used to get the pods logs for script outputs, and for log archival
+- apiGroups:
+  - ""
+  resources:
+  - events
+  - pods
+  - pods/log
+  verbs:
+  - get
+  - watch
+  - patch
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-default-workflow
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-workflow
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default

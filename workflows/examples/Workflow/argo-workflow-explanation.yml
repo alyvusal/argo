@@ -1,0 +1,88 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow                  # New type of k8s spec
+metadata:
+  generateName: hello-world-    # Generated uniques name of this Workflow
+  # name: hello-world-static    # Static name of this Workflow
+spec:
+  # entrypoint defines which template should be executed. Ther could be multiple template.
+  # But only the one defined in `entrypoint` will be executed as function. Others will be used as a general template
+  entrypoint: whalesay          # Invoke the whalesay template. Defines "whalesay" as the "main" template
+  # templates can be loosely thought of as "functions": they define instructions to be executed.
+  # The entrypoint field defines what the "main" function will be - that is, the template that will be executed first.
+
+  volumes:
+  - name: my-secret-vol
+    secret:
+      secretName: my-secret     # name of an existing k8s secret
+
+  templates:
+    # template Types
+    # https://argoproj.github.io/argo-workflows/workflow-concepts/#template-types
+    #   Template Definitions:
+    #   https://argoproj.github.io/argo-workflows/workflow-concepts/#template-definitions
+    #   There are 6 types of templates, divided into two different categories.
+    #     - CONTAINER
+    #       https://argoproj.github.io/argo-workflows/workflow-concepts/#container
+    #       Perhaps the most common template type, it will schedule a Container.
+    #       The spec of the template is the same as the Kubernetes container spec,
+    #       so you can define a container here the same way you do anywhere else in Kubernetes.
+    #     - SCRIPT
+    #       https://argoproj.github.io/argo-workflows/workflow-concepts/#script
+    #       A convenience wrapper around a container. The spec is the same as a container,
+    #       but adds the `source:` field which allows you to define a script in-place.
+    #       The script will be saved into a file and executed for you.
+    #       The result of the script is automatically exported into an Argo variable either {{tasks.<NAME>.outputs.result}}
+    #       or {{steps.<NAME>.outputs.result}}, depending how it was called.
+    #     - RESOURCE
+    #       https://argoproj.github.io/argo-workflows/workflow-concepts/#resource
+    #       Performs operations on cluster Resources directly.
+    #       It can be used to get, create, apply, delete, replace, or patch resources on your cluster.
+    #     - SUSPEND
+    #       https://argoproj.github.io/argo-workflows/workflow-concepts/#suspend
+    #       A suspend template will suspend execution, either for a duration or until it is resumed manually.
+    #       Suspend templates can be resumed from the CLI (with argo resume), the API endpoint, or the UI.
+    #     - HTTP
+    #       https://argoproj.github.io/argo-workflows/http-template/
+    #       https://argoproj.github.io/argo-workflows/http-template/#argo-agent
+    #       HTTP Template is a type of template which can execute HTTP Requests.
+
+    #   Template Invocators:
+    #   https://argoproj.github.io/argo-workflows/workflow-concepts/#template-invocators
+    #   These templates are used to invoke/call other templates and provide execution control.
+    #     - STEPS
+    #       https://argoproj.github.io/argo-workflows/workflow-concepts/#steps
+    #       A steps template allows you to define your tasks in a series of steps.
+    #       The structure of the template is a "list of lists".
+    #       Outer lists will run sequentially and inner lists will run in parallel.
+    #       If you want to run inner lists one by one, use the `Synchronization` feature.
+    #       You can set a wide array of options to control execution,
+    #       such as `when:` clauses to conditionally execute a step.
+    #     - DAG
+    #       https://argoproj.github.io/argo-workflows/workflow-concepts/#dag
+    #       A dag template allows you to define your tasks as a graph of dependencies.
+    #       In a DAG, you list all your tasks and set which other tasks must complete before a particular task can begin.
+    #       Tasks without any dependencies will be run immediately.
+
+  - name: whalesay
+    container:
+      image: alpine:3.7
+        resources: # limit the resources
+          limits:
+            memory: 32Mi
+            cpu: 100m
+      command: [sh, -c]
+      args: ['
+        echo "secret from env: $MYSECRETPASSWORD";
+        echo "secret from file: `cat /secret/mountpath/mypassword`"
+      ']
+      # To access secrets as environment variables, use the k8s valueFrom and
+      # secretKeyRef constructs.
+      env:
+      - name: MYSECRETPASSWORD  # name of env var
+        valueFrom:
+          secretKeyRef:
+            name: my-secret     # name of an existing k8s secret
+            key: mypassword     # 'key' subcomponent of the secret
+      volumeMounts:
+      - name: my-secret-vol     # mount file containing secret at /secret/mountpath
+        mountPath: "/secret/mountpath"

@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rollout-health-check-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rollout-health-check-role
+  namespace: default
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rollout-health-check-rolebinding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rollout-health-check-role
+subjects:
+  - kind: ServiceAccount
+    name: rollout-health-check-sa
+    namespace: default
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rollout-health-check
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    spec:
+      serviceAccountName: rollout-health-check-sa
+      # for HELM replace default namespace with {{ .Release.Namespace }}
+      containers:
+        - name: rollout-health-check
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              ROLLOUT_NAME=$(kubectl get rollouts -n default -l app=demo-app -o jsonpath='{.items[0].metadata.name}')
+              ROLLOUT_STATUS=$(kubectl get rollout $ROLLOUT_NAME -n default -o jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}')
+              if [ "$ROLLOUT_STATUS" = "ProgressDeadlineExceeded" ]; then
+                echo "Rollout has failed. Stopping ArgoCD sync."
+                exit 1
+              fi
+              if [ "$ROLLOUT_STATUS" = "Progressing" ]; then
+                echo "Rollout is in progress. Waiting for completion..."
+                kubectl rollout status rollout/$ROLLOUT_NAME -n default
+                exit $?
+              fi
+              echo "Rollout is healthy. Proceeding with sync."
+              exit 0
+      restartPolicy: Never
+  backoffLimit: 0

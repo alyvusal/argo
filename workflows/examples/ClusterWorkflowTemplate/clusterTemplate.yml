@@ -1,0 +1,81 @@
+# https://argoproj.github.io/argo-workflows/cluster-workflow-templates/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: cluster-wftmpl-dag
+spec:
+  entrypoint: dag-template
+  templates:
+  - name: dag-template
+    dag:
+      tasks:
+      - name: Task1
+        template: task-template
+      - name: Task2
+        template: task-template
+        dependencies: [Task1]
+      - name: Task3
+        template: task-template
+        dependencies: [Task1]
+      - name: Task4
+        template: task-template
+        dependencies: [Task2, Task3]
+
+  - name: task-template
+    script:
+      image: python:3.8-slim
+      command: [python]
+      source: |
+        print("Task executed. Changed. Change again.")
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  # generateName: workflow-template-dag-
+  name: workflow-template-dag
+spec:
+  entrypoint: whalesay
+  templates:
+  - name: whalesay
+    steps:                              # You should only reference external "templates" in a "steps" or "dag" "template".
+      - - name: call-dag-template
+          templateRef:                  # You can reference a "template" from another "WorkflowTemplate or ClusterWorkflowTemplate" using this field
+            name: cluster-wftmpl-dag   # This is the name of the "WorkflowTemplate or ClusterWorkflowTemplate" CRD that contains the "template" you want
+            template: dag-template # we can call task-template also. This is the name of the "template" you want to reference
+            clusterScope: true          # This field indicates this templateRef is pointing ClusterWorkflowTemplate
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: cluster-wftmpl-container
+spec:
+  templates:
+  - name: whalesay-template
+    inputs:
+      parameters:
+      - name: message
+    container:
+      image: docker/whalesay
+      command: [cowsay]
+      args: ["{{inputs.parameters.message}}"]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  # generateName: workflow-template-hello-world-
+  name: workflow-template-hello-world
+spec:
+  entrypoint: whalesay
+  templates:
+  - name: whalesay
+    steps:                              # You should only reference external "templates" in a "steps" or "dag" "template".
+      - - name: call-whalesay-template
+          templateRef:                  # You can reference a "template" from another "WorkflowTemplate or ClusterWorkflowTemplate" using this field
+            name: cluster-wftmpl-container   # This is the name of the "WorkflowTemplate or ClusterWorkflowTemplate" CRD that contains the "template" you want
+            template: whalesay-template # This is the name of the "template" you want to reference
+            clusterScope: true          # This field indicates this templateRef is pointing ClusterWorkflowTemplate
+          arguments:                    # You can pass in arguments as normal
+            parameters:
+            - name: message
+              value: "hello world"

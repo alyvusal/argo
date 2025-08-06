@@ -1,0 +1,161 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: demo-app-
+spec:
+  entrypoint: main
+  arguments:
+    parameters:
+    - name: repo-url
+      value: https://github.com/alyvusal/demo-app.git"
+    - name: branch
+      value: "main"
+    - name: image
+      value: "alyvusal/demo-app"
+    - name: dockerfile
+      value: "Dockerfile"
+
+  volumeClaimTemplates:
+  - metadata:
+      name: workspace
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 100Mi
+
+  volumes:
+  - name: docker-config
+    secret:
+      secretName: docker-registry-creds
+      items:
+        - key: .dockerconfigjson
+          path: config.json
+
+  templates:
+  - name: main
+    inputs:
+      parameters:
+      - name: repo-url
+      - name: branch
+      - name: image
+      - name: dockerfile
+    steps:
+    - - name: clone
+        template: clone
+        arguments:
+          parameters:
+          - name: repo-url
+            value: "{{inputs.parameters.repo-url}}"
+          - name: branch
+            value: "{{inputs.parameters.branch}}"
+    - - name: build
+        template: build
+        arguments:
+          parameters:
+          - name: commit-sha
+            value: "{{steps.clone.outputs.parameters.commit-sha}}"
+    - - name: test
+        template: test
+    - - name: imagebuild
+        template: imagebuild
+        arguments:
+          parameters:
+          - name: commit-sha
+            value: "{{steps.clone.outputs.parameters.commit-sha}}"
+          - name: image
+            value: "{{inputs.parameters.image}}"
+          - name: dockerfile
+            value: "{{inputs.parameters.dockerfile}}"
+
+  # Clone task
+  - name: clone
+    inputs:
+      parameters:
+      - name: repo-url
+      - name: branch
+    script:
+      image: alpine/git
+      command: [sh]
+      env:
+      - name: GITHUB_USER
+        valueFrom:
+          secretKeyRef:
+            name: github-token-secret
+            key: password
+      - name: GITHUB_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: github-token-secret
+            key: password
+      source: |
+        #!/bin/sh
+        git config --global credential.helper store
+        echo "https://$GITHUB_USER:$GITHUB_TOKEN@github.com" > ~/.git-credentials
+        git clone --branch {{inputs.parameters.branch}} {{inputs.parameters.repo-url}} /workspace
+        cd /workspace
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        echo $COMMIT_SHA > /workspace/commit-sha.txt
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    outputs:
+      parameters:
+      - name: commit-sha
+        valueFrom:
+          path: /workspace/commit-sha.txt
+
+  # Build task
+  - name: build
+    inputs:
+      parameters:
+      - name: commit-sha
+    script:
+      image: envsubst/envsubst
+      command: ["bash"]
+      source: |
+        #!/bin/sh
+        cd /workspace
+        export VERSION={{inputs.parameters.commit-sha}}
+        envsubst < index.html.tmpl > index.html
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  # Test task
+  - name: test
+    script:
+      image: envsubst/envsubst
+      command: ["bash"]
+      source: |
+        #!/bin/sh
+        cd /workspace
+        cat index.html
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  # Image build and publish task using Kaniko
+  - name: imagebuild
+    inputs:
+      parameters:
+      - name: commit-sha
+      - name: image
+      - name: dockerfile
+    container:
+      image: gcr.io/kaniko-project/executor:latest
+      command: ["/kaniko/executor"]
+      args:
+      - --dockerfile=/workspace/{{inputs.parameters.dockerfile}}
+      - --context=/workspace
+      - --destination={{inputs.parameters.image}}:{{inputs.parameters.commit-sha}}
+      - --force
+      - --ignore-path=/product_uuid  # for kind cluster (error building image: deleting file system after stage 0: unlinkat //product_uuid: device or resource busy)
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+      - name: docker-config
+        mountPath: /kaniko/.docker
+      env:
+      - name: DOCKER_CONFIG
+        value: /kaniko/.docker

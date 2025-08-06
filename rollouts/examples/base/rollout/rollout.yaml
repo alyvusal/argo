@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  labels:
+    app: demo-app
+    tier: front
+  name: demo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-app
+  strategy:
+    # https://argoproj.github.io/argo-rollouts/features/bluegreen/
+    blueGreen:
+      autoPromotionEnabled: true
+      autoPromotionSeconds: 30
+      # activeService specifies the service to update with the new template hash at time of promotion.
+      # This field is mandatory for the blueGreen update strategy.
+      activeService: demo-app
+      # previewService specifies the service to update with the new template hash (ex: rollouts-pod-template-hash: 7dfd8b7687) before promotion.
+      # This allows the preview stack to be reachable without serving production traffic.
+      # This field is optional.
+      previewService: demo-app-preview
+  template:
+    metadata:
+      # Remove spec.template.metadata.name if present.
+      labels:
+        app: demo-app
+        tier: front
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-creds
+      containers:
+      - image: alyvusal/demo-app:v1
+        name: demo-app
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "128Mi"
+

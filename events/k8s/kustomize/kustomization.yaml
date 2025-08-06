@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ./base/namespace.yaml
+  # - ./base/ingress-kind.yaml
+  - https://github.com/argoproj/argo-events/releases/download/v1.9.5/install.yaml
+  # Install validating webhook (optional)
+  - https://github.com/argoproj/argo-events/releases/download/v1.9.5/install-validating-webhook.yaml
+
+namespace: argo-events

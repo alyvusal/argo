@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-load-analyse
+spec:
+  metrics:
+  - name: canary-load-analyse
+    provider:
+      job:
+        spec:
+          ttlSecondsAfterFinished: 180
+          template:
+            spec:
+              containers:
+              - name: siege
+                image: jstarcher/siege:latest
+                args:
+                  - "--concurrent=2"
+                  - "--benchmark"
+                  - "--time=5m"  # 5m
+                  - "--header='X-Canary: siege'"  # this added to canary ingress by demo-app rollout resource
+                  - "http://demo-app-192.168.0.100.nip.io"
+              restartPolicy: Never
+              hostAliases:
+              - ip: "192.168.0.100"  # replace with internal IP Address of ndode where ingress-nginx controller
+                hostnames:
+                - "demo-app-192.168.0.100.nip.io"  # these hostnames will be resolved on above ip
+          backoffLimit: 4

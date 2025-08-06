@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # ref not worked, always install latest version
+  # help: https://github.com/kubernetes-sigs/kustomize/blob/ab519fdc13ded9875e42d70ac8a5b1b9023a2dbb/examples/remoteBuild.md
+  # - https://github.com/argoproj/argo-workflows/manifests/cluster-install?ref=v3.6.2
+  # - https://github.com/argoproj/argo-workflows/manifests/cluster-install?ref=25bbb71cced32b671f9ad35f0ffd1f0ddb8226ee
+  # below one works with exact version
+  - https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/install.yaml
+  - ./base/namespace.yaml
+  - ./base/ingress-kind.yaml
+  - ./base/ui-access.yaml
+  - ./base/workflow-default-sa-permissions-argo-ns.yaml
+  - ./base/workflow-default-sa-permissions-default-ns.yaml
+
+# namespace: argo  # don't enable, some reosurces installs in default ns
