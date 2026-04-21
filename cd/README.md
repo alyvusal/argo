@@ -12,7 +12,7 @@ Installation
 
 ```bash
 # with helm
-helm upgrade -i argocd argo/argo-cd -n argocd --create-namespace --version 7.6.5 -f k8s/helm/values.yaml
+helm upgrade -i argocd argo/argo-cd -n argocd --create-namespace --version 9.5.1 -f k8s/helm/values.yaml
 
 # with kustomize
 kubectl apply -k k8s/kustomize
@@ -24,6 +24,8 @@ Get initial password for `admin` user
 argocd admin initial-password -n argocd
 # or
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+# or set your own
+./reset-argo-password.sh admin  # set argocd password to admin
 ```
 
 Login (use `--insecure` if custom certificate used in url)
@@ -89,12 +91,12 @@ declarative way
 
 ```bash
 # Application
-kubectl apply -f ./examples/Application.yaml
+kubectl apply -f ./examples/disabled/Application.yaml
 argocd app sync nginx
 argocd app sync guestbook
 
 # ApplicationSet
-kubectl apply -f ./examples/ApplicationSet.yaml
+kubectl apply -f ./examples/disabled/ApplicationSet.yaml
 argocd app sync guestbook-prod
 argocd app sync guestbook-dev
 

@@ -3,6 +3,13 @@
 ## [Install](https://argoproj.github.io/argo-rollouts/installation/)
 
 ```bash
+# with helm
+helm upgrade -i argo-rollouts argo/argo-rollouts \
+  -n argocd --create-namespace \
+  --version 2.40.9 \
+  -f k8s/helm/values.yaml
+
+# with kustomize
 kubectl create namespace argo-rollouts
 kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/download/v1.7.2/install.yaml
 # or all-in-one
@@ -40,6 +47,7 @@ spec:
 ### Native strategies
 
 ```bash
+kubectl create -n argocd secret generic dockerhub-credentials --from-literal=creds=alyvusal:$(cat ~/Documents/dockerhub_lab.token)
 
 kubectl create ns prod
 kubectl create ns staging
@@ -57,9 +65,9 @@ See [how-to](https://kubernetes-tutorial.schoolofdevops.com/argo_rollout_blue_gr
 
 ```bash
 kubectl apply -k examples/rollout-bluegreen/v1
-kubectl argo rollouts list rollouts -n staging
-kubectl argo rollouts get rollout demo-app -n staging
-kubectl argo rollouts status demo-app -n staging
+kubectl argo rollouts list rollouts -n default
+kubectl argo rollouts get rollout demo-app -n default
+kubectl argo rollouts status demo-app -n default
 ```
 
 Now deploy v2 and v3 and check from CLI and UI
@@ -162,6 +170,8 @@ The fact that Argo Rollout Controller will change the weight in the Virtual Serv
 
 In order to fix that add the following to ArgoCD Application.
 
+Similar could be added to ArgoCD Application for image tag etc or disable self healing and pruning for rollouts.
+
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -170,14 +180,80 @@ metadata:
   namespace: argo
 spec:
   ignoreDifferences:
-  - group: networking.istio.io
-    kind: VirtualService
-    jqPathExpressions:
-    - .spec.http[] | select(.name == "canary") | .route[0].weight
-    - .spec.http[] | select(.name == "canary") | .route[1].weight
+    - group: networking.istio.io
+      kind: VirtualService
+      jqPathExpressions:
+      - .spec.http[] | select(.name == "canary") | .route[0].weight
+      - .spec.http[] | select(.name == "canary") | .route[1].weight
+
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jqPathExpressions:
+        - .spec
+        - .status
+        - .metadata.annotations
 ```
 
-[ref](https://medium.com/israeli-tech-radar/deployment-strategies-argo-rollouts-1980fc0685e6)
+ ArgoCD shows the application as "Progressing" until the rollout completes.
+
+```yaml
+# In argocd-cm ConfigMap
+data:
+  # Tell ArgoCD not to diff on rollout status fields
+  resource.customizations.health.argoproj.io_Rollout: |
+    hs = {}
+    if obj.status ~= nil then
+      if obj.status.phase == "Healthy" then
+        hs.status = "Healthy"
+        hs.message = "Rollout is healthy"
+      elseif obj.status.phase == "Paused" then
+        hs.status = "Suspended"
+        hs.message = "Rollout is paused"
+      elseif obj.status.phase == "Degraded" then
+        hs.status = "Degraded"
+        hs.message = "Rollout is degraded"
+      else
+        hs.status = "Progressing"
+        hs.message = "Rollout is progressing"
+      end
+    end
+    return hs
+```
+
+With the `argo-cd` Helm chart, put the same keys under `configs.cm` (they become `argocd-cm` `data` entries). Example including cluster-wide Istio diff ignore (see `cd/k8s/helm/values.yaml`):
+
+```yaml
+configs:
+  cm:
+    resource.customizations.health.argoproj.io_Rollout: |
+      hs = {}
+      if obj.status ~= nil then
+        if obj.status.phase == "Healthy" then
+          hs.status = "Healthy"
+          hs.message = "Rollout is healthy"
+        elseif obj.status.phase == "Paused" then
+          hs.status = "Suspended"
+          hs.message = "Rollout is paused"
+        elseif obj.status.phase == "Degraded" then
+          hs.status = "Degraded"
+          hs.message = "Rollout is degraded"
+        else
+          hs.status = "Progressing"
+          hs.message = "Rollout is progressing"
+        end
+      end
+      return hs
+    resource.customizations.ignoreDifferences.networking.istio.io_VirtualService: |
+      jqPathExpressions:
+      - .spec.http[] | select(.name == "canary") | .route[0].weight
+      - .spec.http[] | select(.name == "canary") | .route[1].weight
+```
+
+For **nginx Ingress** canary annotations, use `spec.ignoreDifferences` on the Application (or a matching `resource.customizations.ignoreDifferences.networking.k8s.io_Ingress` block with the jq paths or `managedFieldsManagers` you need); there is no single global pattern because annotation keys differ by setup.
+
+The **CRD** `ignoreDifferences` block above is very broad (hides almost all CRD drift); only use it if you understand the tradeoff, not as a default for Rollouts.
+
+[ref](https://medium.com/israeli-tech-radar/deployment-strategies-argo-rollouts-1980fc0685e6) and [ref](https://oneuptime.com/blog/post/2026-02-26-argocd-argo-rollouts-progressive-delivery/view#argocd-sync-behavior-with-rollouts)
 
 ## REFERENCE
 

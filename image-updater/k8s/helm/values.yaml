@@ -1,0 +1,15 @@
+config:
+  applications_api: argocd
+  argocd.server_addr: argocd-192.168.0.100.nip.io
+  argocd.grpc_web: "true"
+  argocd.insecure: "true"
+  argocd.plaintext: "false"
+  log.level: debug
+  registries:
+    - name: Docker Hub
+      prefix: docker.io
+      api_url: https://registry-1.docker.io
+      # credentials: pullsecret:argocd/docker-registry-creds  # this not worked
+      credentials: secret:argocd/dockerhub-credentials#creds
+      defaultns: library
+      default: true

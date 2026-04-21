@@ -4,26 +4,11 @@ all-in-one lab guide
 
 ## Prepare environment
 
-install
+install bases
 
 ```bash
-# argocd
-kubectl apply -k cd/k8s/kustomize
-
-# argocd image updater
-kubectl apply -k image-updater/k8s/kustomize
-
-# argo rollouts
-kubectl apply -k rollouts/k8s/kustomize
-
-# argo workflow
-kubectl apply -k workflows/k8s/kustomize
-
-# argo events
-kubectl apply -k events/k8s/kustomize
-
 # prometheus
-helm upgrade --install prom -n monitoring \
+helm upgrade -i prom -n monitoring \
   prometheus-community/kube-prometheus-stack \
   --create-namespace \
   --set grafana.service.type=NodePort \
@@ -31,16 +16,37 @@ helm upgrade --install prom -n monitoring \
   --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
   --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
 
-# enable metrics for ingress-nginx
-helm upgrade -i ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace --version 4.12.0 \
-        -f ../ingress-nginx/k8s/helm/values-kind.yaml --set controller.metrics.serviceMonitor.enabled=true
+# install ingress-nginx with your preferred values and append enable metrics
+helm upgrade -i ingress-nginx ingress-nginx/ingress-nginx \
+  -n ingress-nginx --create-namespace \
+  --reuse-values --set controller.metrics.serviceMonitor.enabled=true
+```
+
+install argo bundle
+
+```bash
+# argocd
+helm upgrade -i argocd argo/argo-cd -n argocd --create-namespace --version 9.5.1 -f cd/k8s/helm/values.yaml
+
+# argocd image updater
+helm upgrade -i argocd-image-updater argo/argocd-image-updater -n argocd --create-namespace \
+  --version 1.1.5 -f image-updater/k8s/helm/values.yaml
+
+# argo rollouts
+helm upgrade -i argo-rollouts argo/argo-rollouts -n argocd --create-namespace \
+  --version 2.40.9 -f rollouts/k8s/helm/values.yaml
+
+# argo workflow
+kubectl apply -k workflows/k8s/kustomize
+
+# argo events
+kubectl apply -k events/k8s/kustomize
 ```
 
 logins
 
 ```bash
 # argocd
-./cd/reset-argo-password.sh admin  # set argocd password to admin
 argocd login --insecure --grpc-web argocd-192.168.0.100.nip.io --username admin --password admin
 
 # argocd image updater
@@ -159,25 +165,3 @@ kubectl describe ingress demo-app && kubectl describe ingress demo-app-demo-app-
 ```
 
 [observe pod ui](http://demo-app-192.168.0.100.nip.io)
-
-**GitOps OutofSync Issue:**
-The fact that Argo Rollout Controller will change the weight in the Virtual Service to the setWeight that was configured, creates an issue for GitOps users. Because this change affects the Live Manifest but not the Desired Manifest — the manifest in the git repository, OutofSync Issue will be prompted by ArgoCD.
-
-In order to fix that add the following to ArgoCD Application.
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: <APP_NAME>
-  namespace: argo
-spec:
-  ignoreDifferences:
-  - group: networking.istio.io
-    kind: VirtualService
-    jqPathExpressions:
-    - .spec.http[] | select(.name == "canary") | .route[0].weight
-    - .spec.http[] | select(.name == "canary") | .route[1].weight
-```
-
-[ref](https://medium.com/israeli-tech-radar/deployment-strategies-argo-rollouts-1980fc0685e6)

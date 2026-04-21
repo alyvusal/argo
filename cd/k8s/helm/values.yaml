@@ -5,8 +5,10 @@ server:
   ingress:
     enabled: true
     ingressClassName: nginx
-
-server:
+    tls: false
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
   extensions:
     enabled: true
     extensionList:
@@ -14,4 +16,60 @@ server:
         env:
           # https://github.com/argoproj-labs/rollout-extension
           - name: EXTENSION_URL
-            value: https://github.com/argoproj-labs/rollout-extension/releases/download/v0.3.4/extension.tar
+            value: https://github.com/argoproj-labs/rollout-extension/releases/download/v0.3.7/extension.tar
+      - name: trivy-extension
+        env:
+          # https://github.com/mziyabo/argocd-trivy-extension
+          - name: EXTENSION_URL
+            value: https://github.com/mziyabo/argocd-trivy-extension/releases/download/v0.2.0/extension-trivy.tar
+          - name: EXTENSION_CHECKSUM_URL
+            value: https://github.com/mziyabo/argocd-trivy-extension/releases/download/v0.2.0/extension-trivy_checksums.txt
+
+configs:
+  secret:
+    # ARGO_PWD=admin
+    # htpasswd -nbBC 10 "" $ARGO_PWD | tr -d ':\n' | sed 's/$2y/$2a/'
+    # argocd account bcrypt --password $ARGO_PWD
+    # Below password is admin
+    argocdServerAdminPassword: "$2a$10$e.aibImVYmkVq5XaiwfzUesYNZbCbXbInXcUMw7afDZaL23xg5sK."
+  cm:
+    url: http://argocd-192.168.0.100.nip.io/
+    resource.customizations.health.argoproj.io_Rollout: |
+      hs = {}
+      if obj.status ~= nil then
+        if obj.status.phase == "Healthy" then
+          hs.status = "Healthy"
+          hs.message = "Rollout is healthy"
+        elseif obj.status.phase == "Paused" then
+          hs.status = "Suspended"
+          hs.message = "Rollout is paused"
+        elseif obj.status.phase == "Degraded" then
+          hs.status = "Degraded"
+          hs.message = "Rollout is degraded"
+        else
+          hs.status = "Progressing"
+          hs.message = "Rollout is progressing"
+        end
+      end
+      return hs
+    resource.customizations.ignoreDifferences.networking.istio.io_VirtualService: |
+      jqPathExpressions:
+      - .spec.http[] | select(.name == "canary") | .route[0].weight
+      - .spec.http[] | select(.name == "canary") | .route[1].weight
+  params:
+    server.insecure: true
+  rbac:
+    policy.csv: |
+      # if argocd-image-updater applications_api is argocd, then enable below lines
+      # p, role:image-updater, applications, get, */*, allow
+      # p, role:image-updater, applications, update, */*, allow
+      # g, image-updater, role:image-updater
+      # Policy: Allows to assign permissions to an entity.
+      # Syntax: p, <role/user/group>, <resource>, <action>, <object>, <effect>
+      p, role:org-admin, applications, *, */*, allow
+      p, role:org-admin, logs, get, org-admin/*, allow
+      p, role:org-admin, clusters, get, *, allow
+      p, role:org-admin, repositories, get, *, allow
+      p, role:org-admin, repositories, create, *, allow
+      p, role:org-admin, repositories, update, *, allow
+      p, role:org-admin, repositories, delete, *, allow

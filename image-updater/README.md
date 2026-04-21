@@ -7,6 +7,13 @@
 ## [Installation](https://argocd-image-updater.readthedocs.io/en/stable/install/installation/)
 
 ```bash
+# with helm
+helm upgrade -i argocd-image-updater argo/argocd-image-updater \
+  -n argocd --create-namespace \
+  --version 1.1.5 \
+  -f k8s/helm/values.yaml
+
+# with kustomize
 kubectl apply -k k8s/kustomize
 ```
 

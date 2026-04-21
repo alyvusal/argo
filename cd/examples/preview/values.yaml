@@ -1,0 +1,5 @@
+name: sample-spring-kotlin
+namespace: preview-default
+image: nginx
+version: latest
+

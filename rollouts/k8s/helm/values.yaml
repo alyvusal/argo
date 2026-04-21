@@ -1,0 +1,11 @@
+controller:
+  replicas: 1
+
+dashboard:
+  enabled: true
+  ingress:
+    enabled: true
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - argo-rollouts-192.168.0.100.nip.io
