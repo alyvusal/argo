@@ -16,6 +16,11 @@ helm upgrade -i argocd argo/argo-cd -n argocd --create-namespace --version 9.5.1
 
 # with kustomize
 kubectl apply -k k8s/kustomize
+
+# github token when PRs are used
+kubectl -n argocd create secret generic github-token \
+  --from-literal=token=$GITHUB_TOKEN_ORG \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 Get initial password for `admin` user
@@ -32,11 +37,11 @@ Login (use `--insecure` if custom certificate used in url)
 
 ```bash
 # with port forwarding
-argocd login --insecure --grpc-web 127.0.0.1:8080
+argocd login --insecure --grpc-web 127.0.0.1:8080 --username admin --password admin
 
 # with ingress
-argocd login --insecure --grpc-web localhost  # kind cluster only
-argocd login --insecure --grpc-web argocd-192.168.0.100.nip.io
+argocd login --insecure --grpc-web localhost --username admin --password admin  # kind cluster only
+argocd login --insecure --grpc-web argocd-192.168.0.100.nip.io --username admin --password admin
 
 # sso
 argocd login --sso argocd-192.168.0.100.nip.io

@@ -1,10 +1,16 @@
 global:
   domain: argocd-192.168.0.100.nip.io
 
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
 server:
   ingress:
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     tls: false
     annotations:
       nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
@@ -12,7 +18,7 @@ server:
   extensions:
     enabled: true
     extensionList:
-      - name: rollout-extension
+      - name: argo-rollouts
         env:
           # https://github.com/argoproj-labs/rollout-extension
           - name: EXTENSION_URL
