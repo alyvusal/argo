@@ -12,7 +12,7 @@ Installation
 
 ```bash
 # with helm
-helm upgrade -i argocd argo/argo-cd -n argocd --create-namespace --version 9.5.1 -f k8s/helm/values.yaml
+helm upgrade -i argocd argo/argo-cd -n argocd --create-namespace --version 9.5.12 -f k8s/helm/values.yaml
 
 # with kustomize
 kubectl apply -k k8s/kustomize

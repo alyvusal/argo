@@ -258,8 +258,8 @@ The **CRD** `ignoreDifferences` block above is very broad (hides almost all CRD 
 ## REFERENCE
 
 - [Rollouts Spec](https://argoproj.github.io/argo-rollouts/features/specification/)
-- https://kubernetes-tutorial.schoolofdevops.com/argo_rollout_blue_green/
-- https://github.com/argoproj/rollouts-demo
-- https://github.com/argoproj/argo-rollouts/tree/master/examples
+- [argo_rollout_blue_green](https://kubernetes-tutorial.schoolofdevops.com/argo_rollout_blue_green/)
+- [rollouts-demo](https://github.com/argoproj/rollouts-demo)
+- [argo-rollouts](https://github.com/argoproj/argo-rollouts/tree/master/examples)
 - [Dashboard](https://github.com/argoproj/argo-rollouts/blob/master/examples/dashboard.json)
-- [Examples](https://github.com/argoproj/rollouts-demo/tree/master/examples)
+- [rollouts-demo Examples](https://github.com/argoproj/rollouts-demo/tree/master/examples)
